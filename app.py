@@ -287,4 +287,4 @@ else:
 
 # Footer
 st.markdown("---")
-st.markdown("© 2023 Electric Vehicle Adoption Analysis Dashboard")
+st.markdown("© 2023 Your Name")
