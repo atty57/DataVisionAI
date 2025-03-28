@@ -7,11 +7,8 @@ from utils.data_processor import clean_data, calculate_growth_rates, calculate_m
 from utils.data_visualizer import plot_global_trends, create_choropleth_map
 from utils.forecasting import forecast_linear, forecast_polynomial, plot_forecast
 
-# Import pages
-import pages.overview
-import pages.regional_analysis
-import pages.market_share
-import pages.forecasting
+# We're using Streamlit's built-in pages system with the numbered files in the pages directory
+# No need to import pages explicitly
 
 # Set page configuration
 st.set_page_config(
@@ -113,36 +110,41 @@ if st.session_state.cleaned_data is not None:
     # Calculate growth rates for filtered data
     growth_data = calculate_growth_rates(filtered_data)
     
-    # Navigation between pages
-    st.sidebar.header("Navigation")
-    page = st.sidebar.radio(
-        "Go to Page",
-        ["Overview", "Regional Analysis", "Market Share", "Forecasting"],
-        index=0
-    )
-    
     # Add some debugging information
     st.sidebar.header("Debug Info")
     if st.sidebar.checkbox("Show debug info"):
-        st.sidebar.write(f"Current page: {page}")
         st.sidebar.write(f"Data loaded: {st.session_state.data is not None}")
         st.sidebar.write(f"Cleaned data: {st.session_state.cleaned_data is not None}")
         if st.session_state.cleaned_data is not None:
             st.sidebar.write(f"Data shape: {st.session_state.cleaned_data.shape}")
             st.sidebar.write(f"Columns: {st.session_state.cleaned_data.columns.tolist()}")
     
-    # Display the selected page
+    # Main page content - no need for navigation as Streamlit handles it automatically
+    st.subheader("Dashboard Home")
+    st.markdown("""
+    This is the main dashboard page. Use the sidebar navigation to explore different analyses:
+    
+    - **Overview**: Get a global overview of electric vehicle adoption
+    - **Regional Analysis**: Compare EV adoption across different regions
+    - **Market Share**: Analyze how EVs are capturing market share from traditional vehicles
+    - **Forecasting**: Predictive analytics for future EV adoption trends
+    """)
+    
+    # Display some sample visualizations on the main page
     try:
-        if page == "Overview":
-            pages.overview.app()
-        elif page == "Regional Analysis":
-            pages.regional_analysis.app()
-        elif page == "Market Share":
-            pages.market_share.app()
-        elif page == "Forecasting":
-            pages.forecasting.app()
+        st.subheader("Global EV Adoption Trends")
+        global_trend_fig = plot_global_trends(filtered_data, metric='sales', 
+                                             title='Global EV Sales Over Time')
+        st.plotly_chart(global_trend_fig, use_container_width=True)
+        
+        st.subheader("Geographic Distribution")
+        latest_year = filtered_data['year'].max()
+        latest_data = filtered_data[filtered_data['year'] == latest_year]
+        map_fig = create_choropleth_map(latest_data, metric='sales', 
+                                        title=f'EV Sales by Region ({latest_year})')
+        st.plotly_chart(map_fig, use_container_width=True)
     except Exception as e:
-        st.error(f"Error loading page: {str(e)}")
+        st.error(f"Error generating visualizations: {str(e)}")
         st.code(str(e), language="python")
 else:
     st.info("Please load data to begin analysis.")
