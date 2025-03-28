@@ -2,8 +2,10 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
+import plotly.graph_objects as go
 import plotly.figure_factory as ff
 from utils.data_visualizer import plot_market_share_evolution, create_stacked_area_chart
+from utils.data_processor import calculate_market_share
 
 def app():
     st.title("EV Market Share Analysis")
@@ -18,6 +20,9 @@ def app():
     st.markdown("""
     This page analyzes the market penetration of electric vehicles over time,
     examining what percentage of new vehicle sales are electric and how this varies by region.
+    
+    Market share is a critical indicator of EV adoption progress, showing how EVs are displacing
+    conventional vehicles in different markets.
     """)
     
     # Check if market share data is available
@@ -180,3 +185,144 @@ def app():
     
     These projections vary based on policy commitments, industry investments, and market conditions.
     """)
+    
+    # Market Share Calculator
+    st.header("Market Share Milestone Calculator")
+    
+    st.markdown("""
+    This interactive calculator helps estimate when different regions might reach key EV market share milestones
+    based on historical growth rates.
+    """)
+    
+    if has_market_share:
+        # Select region to analyze
+        calc_region = st.selectbox(
+            "Select Region to Analyze",
+            options=sorted(data['region'].unique()),
+            index=0
+        )
+        
+        # Filter data for selected region
+        region_data = data[data['region'] == calc_region]
+        
+        # Get the latest market share
+        latest_year = region_data['year'].max()
+        latest_market_share = region_data[region_data['year'] == latest_year]['market_share'].mean()
+        
+        # Calculate average annual growth in percentage points
+        if len(region_data['year'].unique()) > 1:
+            earliest_year = region_data['year'].min()
+            earliest_market_share = region_data[region_data['year'] == earliest_year]['market_share'].mean()
+            years_diff = latest_year - earliest_year
+            
+            if years_diff > 0:
+                annual_growth_pp = (latest_market_share - earliest_market_share) / years_diff
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.metric(
+                        label=f"Current Market Share ({latest_year})",
+                        value=f"{latest_market_share:.1f}%"
+                    )
+                
+                with col2:
+                    st.metric(
+                        label="Avg. Annual Growth (percentage points)",
+                        value=f"{annual_growth_pp:.2f}"
+                    )
+                
+                # Allow user to adjust growth rate
+                adjusted_growth = st.slider(
+                    "Adjust Annual Growth Rate (percentage points)",
+                    min_value=float(max(0.1, annual_growth_pp / 2)),
+                    max_value=float(annual_growth_pp * 2),
+                    value=float(annual_growth_pp),
+                    step=0.1
+                )
+                
+                # Calculate years to reach milestones
+                milestones = [25, 50, 75, 100]
+                milestone_years = {}
+                
+                for milestone in milestones:
+                    if latest_market_share >= milestone:
+                        milestone_years[milestone] = "Already achieved"
+                    else:
+                        points_needed = milestone - latest_market_share
+                        years_needed = points_needed / adjusted_growth
+                        milestone_years[milestone] = f"~{int(latest_year + years_needed)}"
+                
+                # Display milestone projections
+                st.subheader(f"Projected Years to Reach Milestones for {calc_region}")
+                
+                milestone_df = pd.DataFrame({
+                    'Milestone': [f"{m}% Market Share" for m in milestones],
+                    'Projected Year': [milestone_years[m] for m in milestones]
+                })
+                
+                st.table(milestone_df)
+                
+                # Display projection chart
+                projection_years = range(latest_year, latest_year + 31)
+                projection_data = []
+                
+                for year in projection_years:
+                    years_from_now = year - latest_year
+                    projected_share = min(100, latest_market_share + (years_from_now * adjusted_growth))
+                    
+                    projection_data.append({
+                        'Year': year,
+                        'Projected Market Share': projected_share,
+                        'Type': 'Historical' if year == latest_year else 'Projected'
+                    })
+                
+                projection_df = pd.DataFrame(projection_data)
+                
+                fig = px.line(
+                    projection_df, 
+                    x='Year', 
+                    y='Projected Market Share',
+                    color='Type',
+                    title=f'Projected Market Share for {calc_region}',
+                    labels={'Projected Market Share': 'Market Share (%)'},
+                    color_discrete_map={'Historical': 'blue', 'Projected': 'red'}
+                )
+                
+                # Add milestone lines
+                for milestone in milestones:
+                    if latest_market_share < milestone:
+                        fig.add_shape(
+                            type="line",
+                            x0=min(projection_years),
+                            y0=milestone,
+                            x1=max(projection_years),
+                            y1=milestone,
+                            line=dict(color="green", width=1, dash="dash"),
+                        )
+                        
+                        # Add milestone label
+                        fig.add_annotation(
+                            x=min(projection_years) + 2,
+                            y=milestone + 2,
+                            text=f"{milestone}% Milestone",
+                            showarrow=False,
+                            font=dict(size=10),
+                        )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Add insights
+                st.markdown("""
+                **Calculator Insights:**
+                - This is a simple linear projection based on historical growth rates.
+                - Actual market share growth might follow an S-curve rather than linear growth.
+                - Policy changes, technology breakthroughs, or market barriers may accelerate or slow adoption.
+                - The projections become less reliable the further into the future they go.
+                """)
+            else:
+                st.info(f"Not enough historical data for {calc_region} to calculate growth rates.")
+        else:
+            st.info(f"Not enough historical data for {calc_region} to calculate growth rates.")
+    else:
+        st.warning("Market share data is not available in the current dataset. Calculator cannot be used.")

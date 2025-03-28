@@ -3,8 +3,15 @@ import pandas as pd
 import numpy as np
 import os
 from utils.data_loader import load_sample_data
-from utils.data_processor import clean_data, calculate_growth_rates
+from utils.data_processor import clean_data, calculate_growth_rates, calculate_market_share
 from utils.data_visualizer import plot_global_trends, create_choropleth_map
+from utils.forecasting import forecast_linear, forecast_polynomial, plot_forecast
+
+# Import pages
+import pages.overview
+import pages.regional_analysis
+import pages.market_share
+import pages.forecasting
 
 # Set page configuration
 st.set_page_config(
@@ -71,19 +78,28 @@ if st.session_state.cleaned_data is not None:
     st.sidebar.header("Filters")
     
     # Year range selector
-    year_range = st.sidebar.slider(
-        "Select Year Range",
-        min_value=min(st.session_state.years),
-        max_value=max(st.session_state.years),
-        value=(min(st.session_state.years), max(st.session_state.years))
-    )
+    if st.session_state.years:
+        min_year = min(st.session_state.years)
+        max_year = max(st.session_state.years)
+        year_range = st.sidebar.slider(
+            "Select Year Range",
+            min_value=min_year,
+            max_value=max_year,
+            value=(min_year, max_year)
+        )
+    else:
+        year_range = (2010, 2023)  # Default range if years not available
     
     # Region selector
-    selected_regions = st.sidebar.multiselect(
-        "Select Regions",
-        options=st.session_state.regions,
-        default=st.session_state.regions[:5] if len(st.session_state.regions) > 5 else st.session_state.regions
-    )
+    if st.session_state.regions:
+        default_regions = st.session_state.regions[:5] if len(st.session_state.regions) > 5 else st.session_state.regions
+        selected_regions = st.sidebar.multiselect(
+            "Select Regions",
+            options=st.session_state.regions,
+            default=default_regions
+        )
+    else:
+        selected_regions = []  # Default empty selection if regions not available
     
     # Filter data based on selections
     filtered_data = st.session_state.cleaned_data[
@@ -97,113 +113,23 @@ if st.session_state.cleaned_data is not None:
     # Calculate growth rates for filtered data
     growth_data = calculate_growth_rates(filtered_data)
     
-    # Main content
-    tab1, tab2, tab3 = st.tabs(["Global Trends", "Regional Comparison", "Market Analysis"])
+    # Navigation between pages
+    st.sidebar.header("Navigation")
+    page = st.sidebar.radio(
+        "Go to Page",
+        ["Overview", "Regional Analysis", "Market Share", "Forecasting"],
+        index=0
+    )
     
-    with tab1:
-        st.header("Global EV Adoption Trends")
-        st.markdown("This section shows the overall trend of electric vehicle adoption globally.")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.subheader("EV Sales Over Time")
-            fig = plot_global_trends(filtered_data, 'sales', 'Total EV Sales by Year')
-            st.plotly_chart(fig, use_container_width=True)
-            
-        with col2:
-            st.subheader("Year-over-Year Growth Rates")
-            if not growth_data.empty:
-                # Filter growth rates to remove extreme outliers
-                valid_growth = growth_data[growth_data['growth_rate'].between(-100, 200)]
-                if not valid_growth.empty:
-                    import plotly.express as px
-                    fig = px.line(
-                        valid_growth, x='year', y='growth_rate', color='region',
-                        labels={'growth_rate': 'YoY Growth Rate (%)', 'year': 'Year', 'region': 'Region'},
-                        title='Year-over-Year Growth in EV Sales'
-                    )
-                    fig.update_layout(legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
-                    st.plotly_chart(fig, use_container_width=True)
-                else:
-                    st.info("Not enough data to calculate meaningful growth rates.")
-            else:
-                st.info("Not enough data to calculate growth rates.")
-    
-    with tab2:
-        st.header("Regional Comparison")
-        st.markdown("Compare EV adoption across different regions and countries.")
-        
-        # Choropleth map
-        st.subheader("EV Adoption by Region")
-        latest_year = filtered_data['year'].max()
-        latest_data = filtered_data[filtered_data['year'] == latest_year]
-        
-        if not latest_data.empty:
-            fig = create_choropleth_map(latest_data, 'sales', f'EV Sales by Region ({latest_year})')
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info(f"No data available for the selected year {latest_year}.")
-            
-        # Bar chart comparing regions
-        st.subheader("Regional Leaders and Laggards")
-        import plotly.express as px
-        
-        # Aggregate data by region for the latest year
-        region_summary = latest_data.groupby('region')['sales'].sum().reset_index()
-        region_summary = region_summary.sort_values('sales', ascending=False)
-        
-        fig = px.bar(
-            region_summary, x='region', y='sales',
-            labels={'sales': 'Total EV Sales', 'region': 'Region'},
-            title=f'EV Sales by Region in {latest_year}',
-            color='sales',
-            color_continuous_scale='Viridis'
-        )
-        fig.update_layout(xaxis={'categoryorder': 'total descending'})
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with tab3:
-        st.header("Market Share Analysis")
-        st.markdown("Analyze EV market share and composition over time.")
-        
-        if 'market_share' in filtered_data.columns:
-            # Line chart of market share evolution
-            st.subheader("EV Market Share Evolution")
-            market_data = filtered_data.groupby(['year', 'region'])['market_share'].mean().reset_index()
-            
-            fig = px.line(
-                market_data, x='year', y='market_share', color='region',
-                labels={'market_share': 'EV Market Share (%)', 'year': 'Year', 'region': 'Region'},
-                title='Evolution of EV Market Share by Region'
-            )
-            fig.update_layout(legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Market share heatmap
-            st.subheader("Market Share Comparison")
-            pivot_data = market_data.pivot(index='region', columns='year', values='market_share').fillna(0)
-            
-            import plotly.figure_factory as ff
-            if not pivot_data.empty:
-                fig = ff.create_annotated_heatmap(
-                    z=pivot_data.values,
-                    x=list(map(str, pivot_data.columns.tolist())),
-                    y=pivot_data.index.tolist(),
-                    annotation_text=np.around(pivot_data.values, 1),
-                    colorscale='Viridis',
-                    showscale=True
-                )
-                fig.update_layout(
-                    title='EV Market Share by Region and Year (%)',
-                    xaxis_title='Year',
-                    yaxis_title='Region'
-                )
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.info("Not enough market share data available for the selected filters.")
-        else:
-            st.info("Market share data is not available in the current dataset.")
+    # Display the selected page
+    if page == "Overview":
+        pages.overview.app()
+    elif page == "Regional Analysis":
+        pages.regional_analysis.app()
+    elif page == "Market Share":
+        pages.market_share.app()
+    elif page == "Forecasting":
+        pages.forecasting.app()
 else:
     st.info("Please load data to begin analysis.")
 

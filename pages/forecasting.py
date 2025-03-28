@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
+import plotly.graph_objects as go
 from utils.forecasting import forecast_linear, forecast_polynomial, forecast_by_region, plot_forecast
 
 def app():
@@ -16,8 +17,11 @@ def app():
     
     st.markdown("""
     This page provides forecasting of future EV adoption trends based on historical data.
-    The forecasts use simple statistical models and should be interpreted as projections
+    The forecasts use statistical models (linear and polynomial regression) and should be interpreted as projections
     assuming current trends continue, not as definitive predictions.
+    
+    Use the controls below to configure forecasting parameters and view projections for global EV adoption 
+    and individual regions.
     """)
     
     # Forecasting parameters
