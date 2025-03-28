@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import os
-from utils.data_loader import load_sample_data
+from utils.data_loader import load_sample_data, load_data_from_csv, get_data_metadata, load_filtered_data
 from utils.data_processor import clean_data, calculate_growth_rates, calculate_market_share
 from utils.data_visualizer import plot_global_trends, create_choropleth_map
 from utils.forecasting import forecast_linear, forecast_polynomial, plot_forecast
@@ -49,13 +49,25 @@ if data_source == "Upload your own CSV":
     uploaded_file = st.sidebar.file_uploader("Upload EV data CSV", type=['csv'])
     if uploaded_file is not None:
         try:
-            data = pd.read_csv(uploaded_file)
-            st.session_state.data = data
-            with st.spinner("Cleaning and processing data..."):
+            # Save the uploaded file temporarily
+            temp_file_path = f"temp_upload_{uploaded_file.name}"
+            with open(temp_file_path, "wb") as f:
+                f.write(uploaded_file.getbuffer())
+            
+            # Load data from CSV into database
+            with st.spinner("Loading and processing CSV data..."):
+                data = load_data_from_csv(temp_file_path)
+                st.session_state.data = data
                 st.session_state.cleaned_data = clean_data(data)
-                st.session_state.regions = st.session_state.cleaned_data['region'].unique().tolist()
-                st.session_state.years = sorted(st.session_state.cleaned_data['year'].unique().tolist())
-            st.sidebar.success("Data successfully loaded!")
+                
+                # Get metadata from database
+                st.session_state.regions, st.session_state.years = get_data_metadata()
+                
+            # Remove temporary file
+            if os.path.exists(temp_file_path):
+                os.remove(temp_file_path)
+                
+            st.sidebar.success("Data successfully loaded and stored in database!")
         except Exception as e:
             st.sidebar.error(f"Error loading data: {e}")
             st.session_state.data = None
@@ -64,11 +76,29 @@ else:
     # Load sample data
     if st.session_state.data is None:
         with st.spinner("Loading sample data..."):
-            st.session_state.data = load_sample_data()
-            st.session_state.cleaned_data = clean_data(st.session_state.data)
-            st.session_state.regions = st.session_state.cleaned_data['region'].unique().tolist()
-            st.session_state.years = sorted(st.session_state.cleaned_data['year'].unique().tolist())
-        st.sidebar.success("Sample data loaded!")
+            # Initialize database and load sample data
+            from utils.database import init_db
+            try:
+                # Initialize database
+                init_db()
+                
+                # Load sample data (will create if not exists)
+                st.session_state.data = load_sample_data()
+                st.session_state.cleaned_data = clean_data(st.session_state.data)
+                
+                # Get metadata from database
+                st.session_state.regions, st.session_state.years = get_data_metadata()
+                
+                if not st.session_state.regions or not st.session_state.years:
+                    # Fallback if metadata wasn't retrieved correctly
+                    st.session_state.regions = st.session_state.cleaned_data['region'].unique().tolist()
+                    st.session_state.years = sorted(st.session_state.cleaned_data['year'].unique().tolist())
+                    
+                st.sidebar.success("Sample data loaded!")
+            except Exception as e:
+                st.sidebar.error(f"Error loading sample data: {e}")
+                st.session_state.data = None
+                st.session_state.cleaned_data = None
 
 # Data filtering options (only if data is loaded)
 if st.session_state.cleaned_data is not None:
@@ -98,14 +128,13 @@ if st.session_state.cleaned_data is not None:
     else:
         selected_regions = []  # Default empty selection if regions not available
     
-    # Filter data based on selections
-    filtered_data = st.session_state.cleaned_data[
-        (st.session_state.cleaned_data['year'] >= year_range[0]) &
-        (st.session_state.cleaned_data['year'] <= year_range[1])
-    ]
-    
-    if selected_regions:
-        filtered_data = filtered_data[filtered_data['region'].isin(selected_regions)]
+    # Load filtered data directly from database
+    with st.spinner("Loading filtered data from database..."):
+        filtered_data = load_filtered_data(
+            min_year=year_range[0],
+            max_year=year_range[1],
+            regions=selected_regions if selected_regions else None
+        )
     
     # Calculate growth rates for filtered data
     growth_data = calculate_growth_rates(filtered_data)
