@@ -1,6 +1,6 @@
 # EV Adoption Analysis Dashboard
 
-[Dashboard Preview](![EV adoption analysis](https://github.com/user-attachments/assets/ba8fd782-7347-4a58-8655-a7fb58894ea1)
+[Dashboard Preview]![EV adoption analysis](https://github.com/user-attachments/assets/ba8fd782-7347-4a58-8655-a7fb58894ea1)
 
 
 A comprehensive interactive dashboard for analyzing global Electric Vehicle (EV) adoption trends built with Streamlit and PostgreSQL. The dashboard provides deep insights into EV market trends through advanced data visualization and predictive analytics.
@@ -125,21 +125,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Acknowledgments
 
-- Data sources: [provide sources if applicable]
 - Special thanks to contributors and the open-source community
 
 ---
 
-## Screenshots
-
-### Overview Page
-![Overview Page](assets/overview_page.png)
-
-### Regional Analysis
-![Regional Analysis](assets/regional_analysis.png)
-
-### Market Share Analysis
-![Market Share](assets/market_share.png)
-
-### Forecasting
-![Forecasting](assets/forecasting.png)
