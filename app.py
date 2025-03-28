@@ -121,15 +121,29 @@ if st.session_state.cleaned_data is not None:
         index=0
     )
     
+    # Add some debugging information
+    st.sidebar.header("Debug Info")
+    if st.sidebar.checkbox("Show debug info"):
+        st.sidebar.write(f"Current page: {page}")
+        st.sidebar.write(f"Data loaded: {st.session_state.data is not None}")
+        st.sidebar.write(f"Cleaned data: {st.session_state.cleaned_data is not None}")
+        if st.session_state.cleaned_data is not None:
+            st.sidebar.write(f"Data shape: {st.session_state.cleaned_data.shape}")
+            st.sidebar.write(f"Columns: {st.session_state.cleaned_data.columns.tolist()}")
+    
     # Display the selected page
-    if page == "Overview":
-        pages.overview.app()
-    elif page == "Regional Analysis":
-        pages.regional_analysis.app()
-    elif page == "Market Share":
-        pages.market_share.app()
-    elif page == "Forecasting":
-        pages.forecasting.app()
+    try:
+        if page == "Overview":
+            pages.overview.app()
+        elif page == "Regional Analysis":
+            pages.regional_analysis.app()
+        elif page == "Market Share":
+            pages.market_share.app()
+        elif page == "Forecasting":
+            pages.forecasting.app()
+    except Exception as e:
+        st.error(f"Error loading page: {str(e)}")
+        st.code(str(e), language="python")
 else:
     st.info("Please load data to begin analysis.")
 
