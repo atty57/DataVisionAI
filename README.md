@@ -1,6 +1,6 @@
 # EV Adoption Analysis Dashboard
 
-[Dashboard Preview]![EV adoption analysis](https://github.com/user-attachments/assets/25917e99-792a-4f66-a733-38f200aa26d7)
+![EV adoption analysis](https://github.com/user-attachments/assets/25917e99-792a-4f66-a733-38f200aa26d7)
 
 
 
