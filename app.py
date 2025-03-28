@@ -7,11 +7,8 @@ from utils.data_processor import clean_data, calculate_growth_rates, calculate_m
 from utils.data_visualizer import plot_global_trends, create_choropleth_map
 from utils.forecasting import forecast_linear, forecast_polynomial, plot_forecast
 
-# Import pages
-import pages.overview
-import pages.regional_analysis
-import pages.market_share
-import pages.forecasting
+# Import page functions from the consolidated dashboard_pages.py file
+from dashboard_pages import overview_page, regional_analysis_page, market_share_page, forecasting_page
 
 # Set page configuration
 st.set_page_config(
@@ -134,13 +131,13 @@ if st.session_state.cleaned_data is not None:
     # Display the selected page
     try:
         if page == "Overview":
-            pages.overview.app()
+            overview_page()
         elif page == "Regional Analysis":
-            pages.regional_analysis.app()
+            regional_analysis_page()
         elif page == "Market Share":
-            pages.market_share.app()
+            market_share_page()
         elif page == "Forecasting":
-            pages.forecasting.app()
+            forecasting_page()
     except Exception as e:
         st.error(f"Error loading page: {str(e)}")
         st.code(str(e), language="python")
